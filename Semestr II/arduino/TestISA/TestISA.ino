@@ -1,6 +1,18 @@
 #include "ISAMobile.h"
+#include <PID_v1.h>
 
 QMC5883 qmc;
+
+//Define Variables we'll be connecting to
+double Setpoint, Input, Output;
+
+//Define the aggressive and conservative Tuning Parameters
+double consKp=1, consKi=0.02, consKd=0.05;
+
+//Specify the links and initial tuning parameters
+PID myPID(&Input, &Output, &Setpoint, consKp, consKi, consKd, DIRECT);
+
+
 
 void SetPowerLevel(PowerSideEnum side, int level)
 {
@@ -75,6 +87,9 @@ void setup(void)
 	
 	Serial1.begin(9600); // HC06
 
+  Setpoint = 127;
+  Input = 0;
+  myPID.SetMode(AUTOMATIC);
 }
 
 int measureSoundSpeed(int trigger_pin, int echo_pin)
@@ -402,7 +417,7 @@ void loop(void)
 		Serial.println(s);
 		
 		//
-    if(s[0] == 'y' && enabled)
+    if(s[0] == 'y')
     {
         s = s.substring(s.lastIndexOf(" ") + 1);
         char *endptr = NULL;
@@ -412,20 +427,21 @@ void loop(void)
           continue;
         }
 
-      char msg[128];
-      sprintf(msg, "Xaw=%d\n", yaw);
-      Serial.print(msg);
+      //pid
+      Input = map(yaw, -100, 100, 0, 255);
+      myPID.SetTunings(consKp, consKi, consKd);
+      myPID.Compute();
 
       int speed = 50;
-      int turn = map(yaw, -100, 100, speed, -speed);
+      int turn = map(Output, 0, 255, -speed, speed);
     
-      SetPowerLevel(PowerSideEnum::Right, 75 + cut(turn, -speed, speed));
-      SetPowerLevel(PowerSideEnum::Left, 75 + -cut(turn, -speed, speed));
+      SetPowerLevel(PowerSideEnum::Right, 75 + turn);
+      SetPowerLevel(PowerSideEnum::Left, 75 - turn);
+
+      char msg[128];
+      sprintf(msg, "X: %d Input: %f Output %f", yaw, Input, Output);
+      Serial.println(msg);
       
-    }
-    else if(s[0] == 'd')
-    {
-      enabled = !enabled;
     }
 		
 //		if (s == "help")

@@ -29,8 +29,9 @@ camera.video_stabilization = True
 rawCapture = PiRGBArray(camera, size=cameraResolution)
 
 # cap = cv2.VideoCapture(0)
-blueLower = (0, 100, 50)
-blueUpper = (100, 255, 255)
+#not blue, red!!
+blueLower = (150, 150, 50)
+blueUpper = (255, 255, 255)
 colorTolerance = 10
 paused = False
 roiSize = (6, 6) # roi size on the scaled down image (converted to HSV)
