@@ -1,5 +1,8 @@
 #include "ISAMobile.h"
 
+#define STOP_PROXIMITY 0
+#define STOP_ON_BALL_PROXIMITY 0
+
 void setup(void)
 {
   isaInit();
@@ -8,22 +11,64 @@ void setup(void)
 
 void loop(void)
 {
-  int16_t x;
-  int16_t y;
-  int16_t z;
+  //stop on collision
+  int sensor = (int)UltraSoundSensor::Front;
+  int proximity = measureSoundSpeed(ultrasound_trigger_pin[sensor], ultrasound_echo_pin[sensor]);
 
-  float prawo, lewo;
-  fuzzy_calculate(x, &prawo, &lewo);
-  
-  prawo = (prawo > 0) ? (prawo - 500) : 0;
-  lewo = (lewo > 0) ? (lewo - 500) : 0;
-  
-  SetPowerLevel(PowerSideEnum::Right, 127 + lewo);
-  SetPowerLevel(PowerSideEnum::Left, 127 + prawo);
+  if(proximity < STOP_PROXIMITY) {
+    SetPowerLevel(PowerSideEnum::Right, 0);
+    SetPowerLevel(PowerSideEnum::Left, 0);
+    
+    Serial.println("Przeszkoda! ");
+    return;
+  }
 
-  char msg[128];
-  sprintf(msg, "Y: %d Prawo: %f Lewo: %f", x, prawo, lewo);
-  Serial.println(msg);
+  //read serial
+  String s = "";
+  while(true)
+  {
+    while(Serial.available() == 0);
+    int ch = Serial.read();
+    if (ch == '\n')
+      break;
+    s += (char)ch;
+  }
+
+  //przesunięcie
+  if(s.startsWith("y")) {
+    s = s.substring(s.lastIndexOf(" ") + 1);
+    char *endptr = NULL;
+    int yaw = strtol(s.c_str(), &endptr, 10);
+    if (*endptr != '\0') {
+      Serial.println("Polecnie 'y': bład w zapisie wartości");
+      return;
+    }
+
+    if(proximity < STOP_ON_BALL_PROXIMITY) {
+      SetPowerLevel(PowerSideEnum::Right, 0);
+      SetPowerLevel(PowerSideEnum::Left, 0);
+      
+      Serial.println("Pilka zbyt blisko");
+      return;
+    }
+  
+    float prawo, lewo;
+    fuzzy_calculate(yaw, &prawo, &lewo);
+    
+    prawo = (prawo > 0) ? (prawo - 500) : 0;
+    lewo = (lewo > 0) ? (lewo - 500) : 0;
+
+    //int speed = map(proximity, 40, 60, 50, 127);
+    
+    SetPowerLevel(PowerSideEnum::Right, 127 + lewo);
+    SetPowerLevel(PowerSideEnum::Left, 127 + prawo);
+  
+    char msg[128];
+    sprintf(msg, "Y: %d Prawo: %f Lewo: %f", yaw, prawo, lewo);
+    Serial.println(msg); 
+  } else if(s.startsWith("x")) {
+    
+  }
 }
 
 void jedz(int joy_x, int joy_y)
@@ -44,8 +89,8 @@ int cut(int val, int min, int max)
   return val;
 }
 
-int changeToNumber(int i){
-  switch(i){
+int changeToNumber(int i) {
+  switch(i) {
     case 48:
     return 0;
     break;
@@ -76,5 +121,5 @@ int changeToNumber(int i){
     case 57:
     return 9;
     break;
-    }
+  }
 }
