@@ -1,7 +1,7 @@
 #include "ISAMobile.h"
 
-#define STOP_PROXIMITY 0
-#define STOP_ON_BALL_PROXIMITY 0
+#define STOP_PROXIMITY 8
+#define STOP_ON_BALL_PROXIMITY 15
 
 void setup(void)
 {
@@ -11,23 +11,38 @@ void setup(void)
 
 void loop(void)
 {
-  //stop on collision
-  int sensor = (int)UltraSoundSensor::Front;
-  int proximity = measureSoundSpeed(ultrasound_trigger_pin[sensor], ultrasound_echo_pin[sensor]);
-
-  if(proximity < STOP_PROXIMITY) {
-    SetPowerLevel(PowerSideEnum::Right, 0);
-    SetPowerLevel(PowerSideEnum::Left, 0);
-    
-    Serial.println("Przeszkoda! ");
-    return;
-  }
+  int sensor, proximity;
+  int id = 0;
+  int d[5] = {0};
+  int sum = 0;
 
   //read serial
   String s = "";
   while(true)
   {
-    while(Serial.available() == 0);
+    while(Serial.available() == 0)
+    {
+      //stop on collision
+      sensor = (int)UltraSoundSensor::Front;
+      proximity = measureSoundSpeed(ultrasound_trigger_pin[sensor], ultrasound_echo_pin[sensor]);
+
+      
+      // średnia krocząca
+      sum -= d[id];
+      sum += d[id] = proximity;
+      id = (id + 1) % 5;
+      proximity = sum / 5;
+    
+      if(proximity < STOP_PROXIMITY && proximity > 1) {
+        SetPowerLevel(PowerSideEnum::Right, 0);
+        SetPowerLevel(PowerSideEnum::Left, 0);
+        
+        char msg[128];
+        sprintf(msg, "proximity: %dcm", proximity);
+        Serial.println(msg);
+        return;
+      }
+    }
     int ch = Serial.read();
     if (ch == '\n')
       break;
